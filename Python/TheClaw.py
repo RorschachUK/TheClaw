@@ -1,8 +1,9 @@
 # The Claw May 2014 York Hack Space
 # A Leap Motion controller for the meArm robotic arm
 # Operates over a serial link to the meArm's Arduino controller, this link can be
-# implemented via XBees, Ciseco XRFs, some bits of wire, or anything else which
-# provides a transparent wired or wireless serial connection.  I used Ciseco SRF/XinoRF.
+# direct over USB, or can be implemented via XBees, Ciseco XRFs, some bits of wire, or 
+# anything else which provides a transparent wired or wireless serial connection.  
+# I used Ciseco SRF/XinoRF.
 
 import Leap, sys
 from serial import Serial
@@ -33,7 +34,7 @@ class TheClawListener(Leap.Listener):
             pos = [int(hand.palm_position.x), 50-int(hand.palm_position.z), int(hand.palm_position.y) - 50]
             # Get the hand's sphere radius and palm position
             posStr = "goto(" + str(pos[0]) + "," + str(pos[1]) + "," + str(pos[2]) +")"
-            if posStr != lastPos and time.time() - lastPing > 0.1:
+            if posStr != lastPos and time.time() - lastPing > 0.02:
             	lastPos = posStr
             	port.write(posStr + ";")
             	print "Hand: %s at %s" % (state, posStr)

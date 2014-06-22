@@ -5,26 +5,33 @@
  * "goto(0,100,50);open;goto(-80,100,140);close;"
  *
  * Pins:
- * Arduino  XinoRF    Base   Shoulder  Elbow    Gripper
- *    GND            Brown     Brown   Brown     Brown
- *     5V              Red       Red     Red       Red
- *     11            Yellow
- *     10                     Yellow
+ * Arduino  XinoRF    PWMServo  
+ *    GND     GND         GND      
+ *     5V     VCC    VCC & V+
+ *     A4                 SDA
+ *     A5                 SCL
  *      8  Enable
- *      9                             Yellow
- *      6                                       Yellow
  *      0     DIN
  *      1    DOUT
+ *
+ * The servos attach to the first block of four servo connections on
+ * the Adafruit board, brown wire at the bottom, yellow wire at the top.
+ * Adafruit    Servo
+ *       0      Base
+ *       1  Shoulder (right)
+ *       2     Elbow (left)
+ *       3   Gripper
+ *
+ * You can attach to a different block of four by changing the 'begin' call
+ * to specify a block 0-3, e.g. to use the second block call arm.begin(1);
+ * - to mirror movements to all 4 blocks, call arm.begin(-1);
  */
-#include "meArm.h"
-#include <Servo.h>
+#include "meArm_Adafruit.h"
+#include <Adafruit_PWMServoDriver.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_PCD8544.h>
 
-int basePin = 11;
-int shoulderPin = 10;
-int elbowPin = 9;
-int gripperPin = 6;
-
-int ledPin = 13;
 // Ciseco XinoRF Arduino clone connects serial to radio when pin 8 driven high
 int radioEnablePin = 8;
 
@@ -32,17 +39,25 @@ String radioBuffer = "";
 String token = "";
 
 meArm arm;
+Adafruit_PCD8544 nokia = Adafruit_PCD8544(2, 3, A2, A1, A0);
 
 void setup() {
   //Enable the XRF radio
   pinMode(radioEnablePin, OUTPUT);
   digitalWrite(radioEnablePin, HIGH);
   //for feedback
-  pinMode(ledPin, OUTPUT);
-  digitalWrite(ledPin, LOW);
-  
+  nokia.begin();
+  nokia.setContrast(150);
+  nokia.clearDisplay(); // show splashscreen
+  delay(50);
+  nokia.setTextSize(1);
+  nokia.setTextColor(BLACK);
+  nokia.setCursor(0,0);
+  nokia.println("Ready!");
+  nokia.display();
+
   Serial.begin(115200);
-  arm.begin(basePin, shoulderPin, elbowPin, gripperPin);
+  arm.begin();
 }
 
 void loop() {
@@ -64,20 +79,21 @@ void loop() {
   {
     token = radioBuffer.substring(0, pos);
     radioBuffer = radioBuffer.substring(pos+1);
+    nokia.clearDisplay();
+    nokia.setCursor(0,0);
+    nokia.print("token='");
+    nokia.print(token);
+    nokia.println("'");
+    nokia.display();
   }
   
   if (token.equals("open")) {
-    digitalWrite(ledPin, HIGH);
     arm.openGripper();
-    digitalWrite(ledPin, LOW);
   } else if (token.equals("close")) {
-    digitalWrite(ledPin, HIGH);
     arm.closeGripper();
-    digitalWrite(ledPin, LOW);
   } else if (token.equals("reset")) {
-    digitalWrite(ledPin, HIGH);
     arm.goDirectlyTo(0,100,50);
-    digitalWrite(ledPin, LOW);
+    arm.openGripper();
   } else if (token.substring(0,4).equals("goto")) {
     //parse out x - from bracket to first comma
     int comma = token.indexOf(',');
@@ -95,12 +111,19 @@ void loop() {
     int closebracket = token.lastIndexOf(')');
     token.substring(comma2 + 1, closebracket).toCharArray(buf, closebracket - comma2);
     int zNum = atoi(buf);
-    if (arm.isReachable(xNum, yNum, zNum) && (yNum > 50)) {
-      digitalWrite(ledPin, HIGH);
+    if (arm.isReachable(xNum, yNum, zNum)) {
       arm.goDirectlyTo(xNum, yNum, zNum);
       //arm.gotoPoint(xNum, yNum, zNum);
       //delay(20);
-      digitalWrite(ledPin, LOW);
     }
   }
+  nokia.setCursor(0,40);
+  nokia.print("(");
+  nokia.print(int(arm.getX()));
+  nokia.print(",");
+  nokia.print(int(arm.getY()));
+  nokia.print(",");
+  nokia.print(int(arm.getZ()));
+  nokia.print(")");
+  nokia.display();
 }
